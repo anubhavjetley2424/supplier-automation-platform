@@ -1,0 +1,27 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {},
+    "triggers": {
+      "Every_5_Minutes": {
+        "type": "Recurrence",
+        "recurrence": {
+          "frequency": "Minute",
+          "interval": 5
+        }
+      }
+    },
+    "actions": {
+      "Call_Automation": {
+        "type": "Http",
+        "inputs": {
+          "method": "GET",
+          "uri": "https://reillys-automation.ashydesert-6fdee7f2.australiaeast.azurecontainerapps.io/run"
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "kind": "Stateful"
+}
