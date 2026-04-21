@@ -23,54 +23,73 @@ By running this automation, the system eliminates 15-20 hours a week of grueling
 
 Because suppliers provide invoices differently, the system utilizes two distinct parallel approaches.
 
-### Workflow Diagram
+### 1. Approach 1: M365 Email AI Parser
+Suppliers who issue invoices via email PDFs are processed completely headlessly utilizing Microsoft Graph.
 
+**Workflow Summary:**
+1.  The system listens to the Reillys M365 mailbox. 
+2.  When a supplier sends an email, it intercepts the attachment.
+3.  Algorithmically isolates the PO numbers and financial totals.
+4.  Resolves and updates the Hubspot database to reconcile differences automatically.
+
+**Workflow Diagram:**
 ```mermaid
 graph TD
-    %% Base CRM
-    HS[(HubSpot Database<br/>Unconfirmed Orders)]
-
-    %% Approach 1 Setup
-    subgraph Approach 1: M365 Email Parsing
-        Mailbox[Reillys Admin<br/>M365 Mailbox]
-        AI_Extractor[Python FLASK + Graph API<br/>PDF Plumber / Regex Extract]
-        Mailbox -- Receives PDF Email --> AI_Extractor
-    end
-
-    %% Approach 2 Setup
-    subgraph Approach 2: Supplier Portal Web Scraping
-        Portal[Vertilux Supplier<br/>Web Portal Dashboard]
-        Scraper[Python Playwright<br/>Headless Chromium Browser]
-        Portal -- Live Table Rows --> Scraper
-    end
-
-    %% Reconcile
-    AI_Extractor -- Total & PO# --> Matcher1{Match with<br/>HubSpot Entry?}
-    Scraper -- Order Amount & PO# --> Matcher2{Match with<br/>HubSpot Entry?}
+    Mailbox[Reillys Admin M365 Mailbox] -- Receives PDF Email --> AI_Extractor[Python FLASK + Regex Data Extraction]
+    AI_Extractor -- Extractions: Total & PO# --> Matcher{Match with HubSpot DB?}
     
-    HS -. Compare Unconfirmed .-> Matcher1
-    HS -. Compare Unconfirmed .-> Matcher2
+    HS[(HubSpot Database: Unconfirmed POs)] -. Compares .-> Matcher
 
-    %% Updates
-    Matcher1 -- Match: Yes --> Confirmed[Update CRM Status:<br/>Supplier Confirmed]
-    Matcher1 -- Match: No --> Action[Update CRM Status:<br/>Action Needed]
-
-    Matcher2 -- Match: Yes --> Confirmed
-    Matcher2 -- Match: No --> Action
+    Matcher -- Match: Yes --> Confirmed[Update CRM Status: Supplier Confirmed]
+    Matcher -- Match: No --> Action[Update CRM Status: Action Needed]
     
-    Confirmed --> HS_Final[(HubSpot Successfully<br/>Updated)]
+    Confirmed --> HS_Final[(HubSpot Successfully Updated)]
     Action --> HS_Final
 ```
 
-### 1. Approach 1: M365 Email AI Parser
-Suppliers who issue invoices via email PDFs are processed completely headlessly utilizing Microsoft Graph.
-*   **Technologies Used:** Python, Flask, Microsoft Graph API, OAuth2, `pdfplumber` (OCR/Text Extraction), Docker.
-*   **How it Works:** The system listens to the Reillys M365 mailbox. When a supplier sends an email, it intercepts the attachment, algorithmically isolates the PO numbers and financial totals, and checks them against the Hubspot database to reconcile differences automatically.
+**Technologies Used:**
+
+| Technology | Application Context / Purpose |
+|------------|---------|
+| **Python & Flask** | Forms the core backend application structure and hosting webhook framework. |
+| **Microsoft Graph API / OAuth2** | Establishes the secure client-credentials connection to fetch emails without manual logins. |
+| **`pdfplumber`** | Drives the AI text extraction and OCR processing of the attached supplier PDF documents. |
+| **HubSpot API (REST)** | Allows the final stage patching to write verified PO statuses directly to the CRM. |
+| **Docker** | Containerizes the script, isolating dependencies so it runs securely on the cloud. |
+
+---
 
 ### 2. Approach 2: Asynchronous Supplier Portal Scraper
 Suppliers (like Vertilux) who utilize web dashboards rather than PDF emails are natively processed via dynamic headless browser scraping.
-*   **Technologies Used:** Python, Async Playwright (Chromium Headless), Requests, Docker.
-*   **How it Works:** The application bypasses UI overlays and dialog modals to seamlessly log into the portal. It scrapes active financial cells from the dashboard tables, cross-checking the live data with the active HubSpot CRM tables systematically.
+
+**Workflow Summary:**
+1.  The application bypasses UI overlays and dialog modals to log into the supplier portal. 
+2.  Scrapes active financial cells from the dashboard live tables.
+3.  Cross-checks the live scraped data with the active HubSpot CRM tables automatically.
+
+**Workflow Diagram:**
+```mermaid
+graph TD
+    Portal[Vertilux Supplier Web Portal] -- Live Table Rows --> Scraper[Playwright Headless Browser]
+    Scraper -- Scraped: Order Amount & PO# --> Matcher{Match with HubSpot DB?}
+    
+    HS[(HubSpot Database: Unconfirmed POs)] -. Compares .-> Matcher
+
+    Matcher -- Match: Yes --> Confirmed[Update CRM Status: Supplier Confirmed]
+    Matcher -- Match: No --> Action[Update CRM Status: Action Needed]
+    
+    Confirmed --> HS_Final[(HubSpot Successfully Updated)]
+    Action --> HS_Final
+```
+
+**Technologies Used:**
+
+| Technology | Application Context / Purpose |
+|------------|---------|
+| **Python (Async)** | Acts as the main asynchronous worker logic to process tables simultaneously. |
+| **Playwright (Chromium)** | Emulates a literal browser interface to navigate the DOM, close UI popups, and scrape JavaScript tables invisibly. |
+| **Requests (Library)** | Handles the basic HTTP JSON requests updating the HubSpot CRM statuses. |
+| **Docker** | Containerizes the hefty Chromium Playwright engine alongside the project logic for portable cloud deployment. |
 
 ---
 
